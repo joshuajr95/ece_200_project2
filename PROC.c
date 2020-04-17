@@ -40,8 +40,8 @@ int main(int argc, char * argv[]) {
 
 	}
 
-     	//CONVERT MAX INSTRUCTIONS FROM STRING TO INTEGER	
-	MaxInstructions = atoi(argv[2]);	
+     	//CONVERT MAX INSTRUCTIONS FROM STRING TO INTEGER
+	MaxInstructions = atoi(argv[2]);
 
 	//Open file pointers & initialize Heap & Regsiters
 	initHeap();
@@ -52,12 +52,12 @@ int main(int argc, char * argv[]) {
 	int status = LoadOSMemory(argv[1]);
 
 	//IF LOADING FILE RETURNED NEGATIVE EXIT STATUS
-	if(status < 0){ 
-		
+	if(status < 0){
+
 		//PRINT ERROR AND TERMINATE
 		fprintf(stderr, "ERROR: Unable to open file at %s!\n", argv[1]);
-		return status; 
-	
+		return status;
+
 	}
 
 	printf("\n ----- BOOT Sequence ----- \n");
@@ -73,11 +73,11 @@ int main(int argc, char * argv[]) {
 	printf("Max Instruction to run = %d \n",MaxInstructions);
 	fflush(stdout);
 	ProgramCounter = exec.GPC_START;
-	
+
 	/***************************/
 	/* ADD YOUR VARIABLES HERE */
 	/***************************/
-	
+
 	uint8_t opcode;
 	uint8_t rs;
 	uint8_t rt;
@@ -93,18 +93,20 @@ int main(int argc, char * argv[]) {
 	int i;
 	for(i = 0; i < MaxInstructions; i++) {
 
-		//FETCH THE INSTRUCTION AT 'ProgramCounter'		
+		//FETCH THE INSTRUCTION AT 'ProgramCounter'
 		CurrentInstruction = readWord(ProgramCounter,false);
 
-		//PRINT CONTENTS OF THE REGISTER FILE	
+		//PRINT CONTENTS OF THE REGISTER FILE
 		printRegFile();
-		
+
 		/********************************/
 		/* ADD YOUR IMPLEMENTATION HERE */
 		/********************************/
 
 		opcode = (CurrentInstruction & 0xFC000000) >> 26;
-		
+
+		printf("ProgramCounter: %u\n", ProgramCounter);
+		printf("opcode: %u\n", opcode);
 
 		if (opcode == 0)
 		{
@@ -116,14 +118,17 @@ int main(int argc, char * argv[]) {
 			type = 'j';
 		}
 
-		else 
+		else
 		{
 			type = 'i';
 		}
 
+		printf("instruction type: %c\n", type);
+
 		if (type == 'r')
 		{
 			funct = (CurrentInstruction & 0x0000003F);
+			printf("funct: %u\n", funct);
 
 			if (funct == 12) {
 				syscall_code = (CurrentInstruction & 0x03ffffc0) >> 6;
@@ -196,7 +201,7 @@ int main(int argc, char * argv[]) {
 				uint32_t result;
 
 				result = source1 & source2;
-				RegFile = (int32_t)result;
+				RegFile[rd] = (int32_t)result;
 
 				ProgramCounter += 4;
 			}
@@ -209,7 +214,7 @@ int main(int argc, char * argv[]) {
 				uint32_t result;
 
 				result = source1 | source2;
-				RegFile = (int32_t)result;
+				RegFile[rd] = (int32_t)result;
 
 				ProgramCounter += 4;
 			}
@@ -266,7 +271,7 @@ int main(int argc, char * argv[]) {
 				uint32_t source1 = (uint32_t)RegFile[rs];
 				uint32_t source2 = (uint32_t)RegFile[rt];
 				uint32_t result;
-				
+
 				if(source1 < source2) {
 					result = 1;
 				}
@@ -283,18 +288,10 @@ int main(int argc, char * argv[]) {
 			// shift left logical instruction
 			else if (funct == 0)
 			{
-				uint32_t source1 = (uint32_t)RegFile[rs];
-				uint32_t source2 = (uint32_t)RegFile[rt];
+				uint32_t source = (uint32_t)RegFile[rt];
 				uint32_t result;
-				
-				if(source1 < source2) {
-					result = 1;
-				}
 
-				else {
-					result = 0;
-				}
-
+				result = source << shamt;
 				RegFile[rd] = (int32_t)result;
 
 				ProgramCounter += 4;
@@ -454,8 +451,8 @@ int main(int argc, char * argv[]) {
 			// jump register instruction
 			else if (funct == 8)
 			{
-				uint32_t source = (uint32_t)RegFile[rs];
-				ProgramCounter = source;
+				//uint32_t source = (uint32_t)RegFile[rs];
+				ProgramCounter = RegFile[rs];
 			}
 
 			// jump and link register instruction
@@ -484,7 +481,6 @@ int main(int argc, char * argv[]) {
 
 		else if (type == 'i')
 		{
-			opcode = (CurrentInstruction & 0xFC000000) >> 26;
 			rs = (CurrentInstruction & 0x03e00000) >> 21;
 			rt = (CurrentInstruction & 0x001f0000) >> 16;
 
@@ -752,7 +748,7 @@ int main(int argc, char * argv[]) {
 
 				uint32_t mem_addr = base_address + (int32_t)offset;
 				int8_t byte = (int8_t)readByte(mem_addr, false);
-				
+
 				RegFile[rt] = (int32_t) byte;
 
 				ProgramCounter += 4;
@@ -922,7 +918,7 @@ int main(int argc, char * argv[]) {
 			}
 		}
 
-	}   
+	}
 
 	//Close file pointers & free allocated Memory
 	closeFDT();
