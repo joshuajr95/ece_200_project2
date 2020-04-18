@@ -458,7 +458,7 @@ int main(int argc, char * argv[]) {
 			// default to error message if instruction not interpreted correctly
 			else
 			{
-				printf("there was an error with R-type instruction\n");
+				printf("That is not a valid R-type instruction\n");
 			}
 
 		}
@@ -762,26 +762,17 @@ int main(int argc, char * argv[]) {
 			{
 				uint32_t base_address = (uint32_t)RegFile[rs];
 				int16_t offset = (int16_t)(CurrentInstruction & 0x0000ffff);
-
 				uint32_t mem_addr = base_address + (int32_t)offset;
-				uint32_t word = readWord(mem_addr, false);
 
-				uint32_t sign_bit = (word & 0x0000ffff) >> 15;
+				uint8_t most_sig_byte = readByte(mem_addr, false);
+				uint8_t least_sig_byte = readByte(mem_addr + 8, false);
 
-				if (sign_bit == 1)
-				{
-					RegFile[rt] = (int32_t)(word | 0xffff0000);
-				}
+				uint16_t temp = 0;
+				temp = (temp | (uint16_t)most_sig_byte) << 8;
+				temp = temp | (uint16_t)least_sig_byte;
 
-				else if (sign_bit == 0)
-				{
-					RegFile[rt] = (int32_t)(word & 0x0000ffff);
-				}
-
-				else
-				{
-					printf("There was an error loading halfword\n");
-				}
+				int16_t sign_temp = (int16_t)temp;
+				RegFile[rt] = (int32_t)sign_temp;
 
 				ProgramCounter += 4;
 			}
@@ -789,7 +780,16 @@ int main(int argc, char * argv[]) {
 			// load word left instruction
 			else if (opcode == 34)
 			{
-				printf("idk man\n");
+				uint32_t base_address = (uint32_t)RegFile[rs];
+				int16_t offset = (int16_t)(CurrentInstruction & 0x0000ffff);
+				uint32_t mem_addr = base_address + (int32_t)offset;
+
+				int shift_amt = 8*(mem_addr % 4);
+				uint32_t aligned_addr = mem_addr = (mem_addr % 4);
+
+				uint32_t temp = readWord(aligned_addr, false);
+				RegFile[rt] = (int32_t)(temp << shift_amt);
+
 				ProgramCounter += 4;
 			}
 
@@ -824,13 +824,17 @@ int main(int argc, char * argv[]) {
 			{
 				uint32_t base_address = (uint32_t)RegFile[rs];
 				int16_t offset = (int16_t)(CurrentInstruction & 0x0000ffff);
-
 				uint32_t mem_addr = base_address + (int32_t)offset;
 
-				uint32_t word = readWord(mem_addr, false);
-				word = word & 0x0000ffff;
+				uint8_t most_sig_byte = readByte(mem_addr, false);
+				uint8_t least_sig_byte = readByte(mem_addr + 8, false);
 
-				RegFile[rt] = (int32_t) word;
+				uint16_t temp = 0;
+				temp = (temp | (uint16_t)most_sig_byte) << 8;
+				temp = temp | (uint16_t)least_sig_byte;
+
+				uint32_t temp2 = (uint32_t) temp;
+				RegFile[rt] = (int32_t)temp2;
 
 				ProgramCounter += 4;
 			}
@@ -838,7 +842,16 @@ int main(int argc, char * argv[]) {
 			// load word right instruction
 			else if (opcode == 38)
 			{
-				printf("idk man\n");
+				uint32_t base_address = (uint32_t)RegFile[rs];
+				int16_t offset = (int16_t)(CurrentInstruction & 0x0000ffff);
+				uint32_t mem_addr = base_address + (int32_t)offset;
+
+				int shift_amt = 8*(3 - (mem_addr % 4));
+				uint32_t aligned_addr = mem_addr - (mem_addr % 4);
+
+				uint32_t temp = readWord(aligned_addr, false);
+				RegFile[rt] = temp >> shift_amt;
+
 				ProgramCounter += 4;
 			}
 
@@ -858,14 +871,39 @@ int main(int argc, char * argv[]) {
 			// store halfword instruction
 			else if (opcode == 41)
 			{
-				printf("idk man\n");
+				uint32_t base_address = (uint32_t)RegFile[rs];
+				int16_t offset = (int16_t)(CurrentInstruction & 0x0000ffff);
+				uint32_t mem_addr = base_address + (int32_t)offset;
+
+				uint8_t most_sig_byte = (uint8_t)((RegFile[rt] & 0x0000ff00) >> 8);
+				uint8_t least_sig_byte = (uint8_t)(RegFile[rt] & 0x000000ff);
+
+				writeByte(mem_addr, most_sig_byte, false);
+				writeByte(mem_addr + 8, least_sig_byte, false);
+
 				ProgramCounter += 4;
 			}
 
 			// store word left instruction
 			else if (opcode == 42)
 			{
-				printf("idk man\n");
+				uint32_t base_address = (uint32_t)RegFile[rs];
+				int16_t offset = (int16_t)(CurrentInstruction & 0x0000ffff);
+				uint32_t mem_addr = base_address + (int32_t)offset;
+
+				int num_bytes = 4 - (mem_addr % 4);
+				uint32_t source = (uint32_t)RegFile[rt];
+
+
+				uint8_t store_byte = (source & 0xff000000) >> 24;
+				writeByte(mem_addr, store_byte, false);
+
+				for (int i = 1; i <= num_bytes - 1; i++) {
+					source = source << 8;
+					store_byte = (source & 0xff000000) >> 24;
+					writeByte(mem_addr + i, store_byte, false);
+				}
+
 				ProgramCounter += 4;
 			}
 
@@ -885,13 +923,28 @@ int main(int argc, char * argv[]) {
 			// store word right instruction
 			else if (opcode == 46)
 			{
-				printf("idk man\n");
+				uint32_t base_address = (uint32_t)RegFile[rs];
+				int16_t offset = (int16_t)(CurrentInstruction & 0x0000ffff);
+				uint32_t mem_addr = base_address + (int32_t)offset;
+
+				int num_bytes = 1 + (mem_addr % 4);
+				uint32_t source = (uint32_t)RegFile[rt];
+
+				uint8_t store_byte = (source & 0x000000ff);
+				writeByte(mem_addr, store_byte, false);
+
+				for (int i = 1; i <= num_bytes; i++) {
+					source = source >> 8;
+					store_byte = source & 0x000000ff;
+					writeByte(mem_addr - i, store_byte, false);
+				}
+
 				ProgramCounter += 4;
 			}
 
 			else
 			{
-				printf("There was an error with I-type instruction\n");
+				printf("That is not a valid I-type instruction\n");
 			}
 
 		}
@@ -921,7 +974,7 @@ int main(int argc, char * argv[]) {
 
 			else
 			{
-				printf("there was an error with J-type instruction\n");
+				printf("That is not a valid J-type instruction\n");
 			}
 		}
 
