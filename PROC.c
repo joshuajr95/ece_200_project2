@@ -88,6 +88,9 @@ int main(int argc, char * argv[]) {
 	uint32_t syscall_code;
 
 	char type;
+	bool branch_delay = false;
+	bool delay_executed = false;
+	uint32_t branch_addr;
 
 
 	int i;
@@ -144,12 +147,7 @@ int main(int argc, char * argv[]) {
 			// add instruction
 			if (funct == 32)
 			{
-				int32_t source1 = RegFile[rs];
-				int32_t source2 = RegFile[rt];
-				int32_t result;
-
-				result = source1 + source2;
-				RegFile[rd] = result;
+				RegFile[rd] = RegFile[rs] + RegFile[rt];
 
 				ProgramCounter += 4;
 			}
@@ -157,12 +155,7 @@ int main(int argc, char * argv[]) {
 			// add unsigned instruction
 			else if (funct == 33)
 			{
-				uint32_t source1 = (uint32_t)RegFile[rs];
-				uint32_t source2 = (uint32_t)RegFile[rt];
-				uint32_t result;
-
-				result = source1 + source2;
-				RegFile[rd] = (int32_t)result;
+				RegFile[rd] = RegFile[rs] + RegFile[rt];
 
 				ProgramCounter += 4;
 			}
@@ -170,12 +163,7 @@ int main(int argc, char * argv[]) {
 			// subtract instruction
 			else if (funct == 34)
 			{
-				int32_t source1 = RegFile[rs];
-				int32_t source2 = RegFile[rt];
-				int32_t result;
-
-				result = source1 - source2;
-				RegFile[rd] = result;
+				RegFile[rd] = RegFile[rs] - RegFile[rt];
 
 				ProgramCounter += 4;
 			}
@@ -183,12 +171,7 @@ int main(int argc, char * argv[]) {
 			// subtract unsigned instruction
 			else if (funct == 35)
 			{
-				uint32_t source1 = (uint32_t)RegFile[rs];
-				uint32_t source2 = (uint32_t)RegFile[rt];
-				uint32_t result;
-
-				result = source1 - source2;
-				RegFile[rd] = (int32_t)result;
+				RegFile[rd] = RegFile[rs] - RegFile[rt];
 
 				ProgramCounter += 4;
 			}
@@ -465,6 +448,7 @@ int main(int argc, char * argv[]) {
 			// system call instruction
 			else if (funct == 12)
 			{
+				printf("%d\n", RegFile[4]);
 				uint32_t SID = RegFile[2];
 				SyscallExe(SID);
 
@@ -499,10 +483,11 @@ int main(int argc, char * argv[]) {
 			// add immediate unsigned instruction
 			else if (opcode == 9)
 			{
-				uint32_t source = (uint32_t)RegFile[rs];
-				uint32_t immediate = CurrentInstruction & 0x0000ffff;
+				int32_t source = RegFile[rs];
+				int16_t temp = (int16_t)(CurrentInstruction & 0x0000ffff);
+				int32_t immediate = (int32_t)temp;
 
-				RegFile[rt] = (int32_t)(source + immediate);
+				RegFile[rt] = source + immediate;
 
 				ProgramCounter += 4;
 			}
@@ -531,9 +516,11 @@ int main(int argc, char * argv[]) {
 			else if (opcode == 11)
 			{
 				uint32_t source = (uint32_t)RegFile[rs];
-				uint32_t immediate = CurrentInstruction & 0x0000ffff;
+				int16_t temp = (int16_t)(CurrentInstruction & 0x0000ffff);
+				int32_t immediate = (int32_t)temp;
 
-				if (source < immediate)
+
+				if (source < (uint32_t)immediate)
 				{
 					RegFile[rt] = 1;
 				}
@@ -603,7 +590,9 @@ int main(int argc, char * argv[]) {
 						if (source < 0)
 						{
 							offset = offset << 2;
-							ProgramCounter = ProgramCounter + 4 + offset;
+							branch_addr = ProgramCounter + 4 + offset;
+							branch_delay = true;
+							ProgramCounter += 4;
 						}
 
 						else
@@ -618,7 +607,9 @@ int main(int argc, char * argv[]) {
 						if (source >= 0)
 						{
 							offset = offset << 2;
-							ProgramCounter = ProgramCounter + 4 + offset;
+							branch_addr = ProgramCounter + 4 + offset;
+							branch_delay = true;
+							ProgramCounter += 4;
 						}
 
 						else
@@ -634,7 +625,9 @@ int main(int argc, char * argv[]) {
 						{
 							RegFile[31] = ProgramCounter + 4;
 							offset = offset << 2;
-							ProgramCounter = ProgramCounter + 4 + offset;
+							branch_addr = ProgramCounter + 4 + offset;
+							branch_delay = true;
+							ProgramCounter += 4;
 						}
 
 						else
@@ -650,7 +643,9 @@ int main(int argc, char * argv[]) {
 						{
 							RegFile[31] = ProgramCounter + 4;
 							offset = offset << 2;
-							ProgramCounter = ProgramCounter + 4 + offset;
+							branch_addr = ProgramCounter + 4 + offset;
+							branch_delay = true;
+							ProgramCounter += 4;
 						}
 
 						else
@@ -673,7 +668,9 @@ int main(int argc, char * argv[]) {
 				if (source1 == source2)
 				{
 					offset = offset << 2;
-					ProgramCounter = ProgramCounter + 4 + offset;
+					branch_addr = ProgramCounter + 4 + offset;
+					branch_delay = true;
+					ProgramCounter += 4;
 				}
 
 				else
@@ -693,7 +690,9 @@ int main(int argc, char * argv[]) {
 				if (source1 != source2)
 				{
 					offset = offset << 2;
-					ProgramCounter = ProgramCounter + 4 + offset;
+					branch_addr = ProgramCounter + 4 + offset;
+					branch_delay = true;
+					ProgramCounter += 4;
 				}
 
 				else
@@ -712,7 +711,9 @@ int main(int argc, char * argv[]) {
 				if (source <= 0)
 				{
 					offset = offset << 2;
-					ProgramCounter = ProgramCounter + 4 + offset;
+					branch_addr = ProgramCounter + 4 + offset;
+					branch_delay = true;
+					ProgramCounter += 4;
 				}
 
 				else
@@ -731,7 +732,9 @@ int main(int argc, char * argv[]) {
 				if (source > 0)
 				{
 					offset = offset << 2;
-					ProgramCounter = ProgramCounter + 4 + offset;
+					branch_addr = ProgramCounter + 4 + offset;
+					branch_delay = true;
+					ProgramCounter += 4;
 				}
 
 				else
@@ -874,7 +877,7 @@ int main(int argc, char * argv[]) {
 				int16_t offset = (int16_t)(CurrentInstruction & 0x0000ffff);
 
 				uint32_t mem_addr = base_address + (int32_t)offset;
-				writeByte(mem_addr, store_data, false);
+				writeWord(mem_addr, store_data, false);
 
 				ProgramCounter += 4;
 			}
@@ -901,7 +904,9 @@ int main(int argc, char * argv[]) {
 			if (opcode == 2)
 			{
 				jump_index = jump_index << 2;
-				ProgramCounter = jump_index;
+				branch_addr = jump_index;
+				branch_delay = true;
+				ProgramCounter += 4;
 			}
 
 			// jump and link instruction
@@ -909,7 +914,9 @@ int main(int argc, char * argv[]) {
 			{
 				RegFile[31] = ProgramCounter + 4;
 				jump_index = jump_index << 2;
-				ProgramCounter = jump_index;
+				branch_addr = jump_index;
+				branch_delay = true;
+				ProgramCounter += 4;
 			}
 
 			else
@@ -917,6 +924,18 @@ int main(int argc, char * argv[]) {
 				printf("there was an error with J-type instruction\n");
 			}
 		}
+
+		if (branch_delay && delay_executed) {
+			ProgramCounter = branch_addr;
+			branch_delay = false;
+			delay_executed = false;
+		}
+
+		if (branch_delay && !delay_executed) {
+			delay_executed = true;
+		}
+
+		RegFile[0] = 0;
 
 	}
 
